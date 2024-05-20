@@ -7,6 +7,7 @@ public class TransactionProcessor implements ItemProcessor<Transaction, Transact
 
     @Override
     public Transaction process(Transaction transaction) throws Exception {
+        transaction.setId(null);
         return transaction;
     }
 }

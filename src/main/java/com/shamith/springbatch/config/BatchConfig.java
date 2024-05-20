@@ -17,7 +17,11 @@ import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.transaction.PlatformTransactionManager;
+
+import java.security.PublicKey;
 
 @Configuration
 @RequiredArgsConstructor
@@ -53,11 +57,19 @@ public class BatchConfig {
     @Bean
     public Step importStep(){
         return new StepBuilder("CSV-IMPORTER", jobRepository)
-                .<Transaction, Transaction>chunk(10, platformTransactionManager)
+                .<Transaction, Transaction>chunk(1000, platformTransactionManager)
                 .reader(itemReader())
                 .processor(processor())
                 .writer(writer())
+                .taskExecutor(taskExecutor())
                 .build();
+    }
+
+    @Bean
+    public TaskExecutor taskExecutor(){
+        SimpleAsyncTaskExecutor simpleAsyncTaskExecutor = new SimpleAsyncTaskExecutor();
+        simpleAsyncTaskExecutor.setConcurrencyLimit(4);
+        return simpleAsyncTaskExecutor;
     }
 
     @Bean
