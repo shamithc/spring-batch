@@ -1,6 +1,7 @@
 package com.shamith.springbatch;
 
 import com.shamith.springbatch.config.BatchConfigNew;
+import com.shamith.springbatch.config.outbox.OutboxBatchConfiguration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobParameters;
@@ -27,15 +28,18 @@ public class BatchJobInitializerService {
 
     private final BatchConfigNew batchConfigNew;
 
-    @Scheduled(cron = "0 */1 * * * *")
+    private final OutboxBatchConfiguration outboxBatchConfiguration;
+
+    @Scheduled(cron = "* * * * * *")
     void runner(){
             try {
                 System.out.print("---Started");
                 JobParameters jobParameters = new JobParametersBuilder()
                         .addLong("startAt", System.currentTimeMillis())
                         .toJobParameters();
-                Thread.sleep(100000);
-                jobLauncher.run(batchConfigNew.eventRunJob(), jobParameters);
+//                Thread.sleep(100000);
+//                jobLauncher.run(batchConfigNew.eventRunJob(), jobParameters);
+                jobLauncher.run(outboxBatchConfiguration.eventRunJob(), jobParameters);
                 System.out.print("---End");
             } catch (JobExecutionAlreadyRunningException
                      | JobRestartException
@@ -43,8 +47,6 @@ public class BatchJobInitializerService {
                      | JobParametersInvalidException e) {
 //            throw new RuntimeException(e);
                 e.printStackTrace();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
             }
 
     }

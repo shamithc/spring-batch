@@ -72,7 +72,7 @@ id,txnRefNumber,amount,type
 
 
 
-### TODO
+### TODO OutBox
 
 Read from Outbox
 
@@ -83,3 +83,66 @@ Writer
    - Delete 
 
 
+
+
+-- DROP FUNCTION IF EXISTS t1_function;
+
+CREATE OR REPLACE FUNCTION t1_function()
+RETURNS trigger
+LANGUAGE plpgsql
+AS
+$function$
+declare
+begin
+insert into outbox_entity(message_id) values(NEW.id);
+
+    return NEW;
+end;
+$function$
+
+
+
+
+DROP TRIGGER IF EXISTS t ON "message_entity";
+create trigger t
+before insert
+on "message_entity"
+for each row
+execute procedure t1_function();
+
+
+
+
+
+INSERT INTO message_entity (txn_ref_number, amount )
+SELECT 'txn-' || i, i
+FROM generate_series(1, 100000) AS s(i);
+
+
+
+ALTER SEQUENCE outbox_entity_id_seq RESTART WITH 1;
+ALTER SEQUENCE message_entity_id_seq RESTART WITH 1;
+
+
+
+SELECT
+DATE_TRUNC('minute', updated_at) AS minute,
+COUNT(*) AS message_entity
+FROM
+message_entity
+GROUP BY
+DATE_TRUNC('minute', updated_at)
+ORDER BY
+minute;
+
+
+
+SELECT
+DATE_TRUNC('second', updated_at) AS second,
+COUNT(*) AS message_entity
+FROM
+message_entity
+GROUP BY
+DATE_TRUNC('second', updated_at)
+ORDER BY
+second;
