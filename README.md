@@ -1,6 +1,41 @@
 curl -X POST localhost:9090/transactions
 
 
+
+-- DROP TRIGGER IF EXISTS t ON ledger_entries;
+
+-- DROP FUNCTION IF EXISTS t_function;
+
+CREATE OR REPLACE FUNCTION t_function()
+RETURNS trigger
+LANGUAGE plpgsql
+AS
+$function$
+declare
+begin
+insert into transaction_events(transaction_id) values(NEW.id);
+
+    return NEW;
+end;
+$function$
+
+
+
+
+
+
+DROP TRIGGER IF EXISTS t ON "transaction";
+create trigger t
+before insert
+on "transaction"
+for each row
+execute procedure t_function();
+
+
+
+create table transaction_events(id bigserial, transaction_id integer);
+
+
 id,txnRefNumber,amount,type
 1,u123,100,sale
 
@@ -34,3 +69,17 @@ id,txnRefNumber,amount,type
 [COMPLETED] in 1s554ms
 [COMPLETED] in 1s67ms
 [COMPLETED] in 880ms
+
+
+
+### TODO
+
+Read from Outbox
+
+ItemProcess  8ms delay
+
+Writer
+   - Update
+   - Delete 
+
+

@@ -1,5 +1,4 @@
-package com.shamith.springbatch.config.transaction;
-
+package com.shamith.springbatch.config.outbox;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -7,14 +6,12 @@ import jakarta.persistence.Id;
 import lombok.Getter;
 import lombok.Setter;
 
-@Getter
-@Setter
 @Entity
-public class Transaction {
+@Setter
+@Getter
+public class OutboxEntity {
     @Id
     @GeneratedValue
     private Long id;
-    private String txnRefNumber;
-    private String amount;
-    private String type;
+    private Long messageId;
 }

@@ -1,5 +1,6 @@
 package com.shamith.springbatch;
 
+import com.shamith.springbatch.config.BatchConfigNew;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobParameters;
@@ -9,6 +10,7 @@ import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
 import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
 import org.springframework.batch.core.repository.JobRestartException;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -22,7 +24,8 @@ import java.util.concurrent.Executors;
 public class BatchJobInitializerService {
 
     private final JobLauncher jobLauncher;
-    private final Job job;
+
+    private final BatchConfigNew batchConfigNew;
 
     @Scheduled(cron = "0 */1 * * * *")
     void runner(){
@@ -32,7 +35,7 @@ public class BatchJobInitializerService {
                         .addLong("startAt", System.currentTimeMillis())
                         .toJobParameters();
                 Thread.sleep(100000);
-                jobLauncher.run(job, jobParameters);
+                jobLauncher.run(batchConfigNew.eventRunJob(), jobParameters);
                 System.out.print("---End");
             } catch (JobExecutionAlreadyRunningException
                      | JobRestartException
