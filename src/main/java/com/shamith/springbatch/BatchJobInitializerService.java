@@ -30,7 +30,7 @@ public class BatchJobInitializerService {
 
     private final OutboxBatchConfiguration outboxBatchConfiguration;
 
-    @Scheduled(cron = "* * * * * *")
+//    @Scheduled(cron = "* * * * * *")
     void runner(){
             try {
                 System.out.print("---Started");

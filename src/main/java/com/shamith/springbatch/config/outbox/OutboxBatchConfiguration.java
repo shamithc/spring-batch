@@ -14,19 +14,26 @@ import org.springframework.batch.item.data.RepositoryItemReader;
 import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
+import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
+import org.springframework.batch.item.database.builder.JdbcPagingItemReaderBuilder;
+import org.springframework.batch.item.database.support.SqlPagingQueryProviderFactoryBean;
 import org.springframework.batch.item.support.CompositeItemWriter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @Configuration
 @RequiredArgsConstructor
@@ -42,25 +49,53 @@ public class OutboxBatchConfiguration {
 
     @Bean
     public Step processOutboxStep(){
-        return new StepBuilder("OUTBOX-STEP", jobRepository)
-                .<OutboxEntity,  Map<String, Object>>chunk(10000, platformTransactionManager)
-                .reader(outboxReader())
-                .writer(compositeWriter())
+        try {
+            return new StepBuilder("OUTBOX-STEP", jobRepository)
+                    .<OutboxEntity,  Map<String, Object>>chunk(10000, platformTransactionManager)
+//                .reader(outboxJdbcCursorReader())
+                    .reader(outboxJdbcPagingItemReader())
+                    .writer(compositeWriter())
+//                    .taskExecutor(simpleTaskExecutor())
 //                .writer(chunk -> chunk.forEach(System.out::println))
-                .processor(outboxProcessor)
-                .build();
+                    .processor(outboxProcessor)
+                    .build();
+        } catch (Exception ex) {
+            System.out.println(ex.getLocalizedMessage());
+            return null;
+        }
+
     }
 
 
 
     @Bean
-    public ItemReader<? extends OutboxEntity> outboxReader(){
+    public ItemReader<? extends OutboxEntity> outboxJdbcCursorReader(){
         JdbcCursorItemReader<OutboxEntity> reader = new JdbcCursorItemReader<>();
         reader.setDataSource(dataSource);
         reader.setSql("SELECT * FROM outbox_entity");
+//        reader.setFetchSize(10000);
         reader.setRowMapper(new BeanPropertyRowMapper<>(OutboxEntity.class));
         return reader;
     }
+
+    @Bean
+    public JdbcPagingItemReader<OutboxEntity> outboxJdbcPagingItemReader() throws Exception {
+        JdbcPagingItemReader<OutboxEntity> reader = new JdbcPagingItemReader<>();
+        reader.setDataSource(dataSource);
+        reader.setPageSize(10000);  // Set the page size
+
+        SqlPagingQueryProviderFactoryBean queryProvider = new SqlPagingQueryProviderFactoryBean();
+        queryProvider.setDataSource(dataSource);
+        queryProvider.setSelectClause("SELECT *");
+        queryProvider.setFromClause("FROM outbox_entity");
+        queryProvider.setSortKey("id");  // Set the sort key for pagination
+
+        reader.setQueryProvider(queryProvider.getObject());
+        reader.setRowMapper(new BeanPropertyRowMapper<>(OutboxEntity.class));
+
+        return reader;
+    }
+
 
 
     @Bean
@@ -95,5 +130,23 @@ public class OutboxBatchConfiguration {
         return new JobBuilder("OUTBOX-JOB", jobRepository)
                 .start(processOutboxStep())
                 .build();
+    }
+
+    @Bean
+    public TaskExecutor threadPoolTaskExecutor() {
+        ThreadPoolTaskExecutor taskExecutor = new ThreadPoolTaskExecutor();
+        taskExecutor.setThreadNamePrefix("OutboxTransaction-");
+        taskExecutor.setCorePoolSize(4);
+        taskExecutor.setMaxPoolSize(8);
+        taskExecutor.setQueueCapacity(50);
+        taskExecutor.afterPropertiesSet();
+        return taskExecutor;
+    }
+
+    @Bean
+    public TaskExecutor simpleTaskExecutor(){
+        SimpleAsyncTaskExecutor asyncTaskExecutor = new SimpleAsyncTaskExecutor();
+        asyncTaskExecutor.setConcurrencyLimit(10);
+        return asyncTaskExecutor;
     }
 }
